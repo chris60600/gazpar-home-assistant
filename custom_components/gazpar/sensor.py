@@ -86,10 +86,16 @@ class GazparAccount:
         try:
             # Get full month data
             gazpar = Gazpar(self._username, self._password)
-            data = gazpar.get_data_per_day(datetime.now().replace(day=1).strftime('%d/%m/%Y'),
-                                           datetime.now().strftime('%d/%m/%Y'))
+            # Compute startdate from enddate
+            # data may be empt on the first of month
+            end_date   = datetime.now()
+            start_date = end_date - timedelta(days=7)
+            
+            data = gazpar.get_data_per_day(start_date.strftime('%d/%m/%Y'),
+                                           end_date.strftime('%d/%m/%Y'))
+
             _LOGGER.debug('data={0}'.format(json.dumps(data, indent=2)))
-            data = [d for d in data if datetime.strptime(d['time'], '%d/%m/%Y') >= datetime.now().replace(day=1)]
+            data = [d for d in data if datetime.strptime(d['time'], '%d/%m/%Y') >= start_date]
 
             last_kwh = int(data[-1]['kwh'])
             month_kwh = sum([int(d['kwh']) for d in data])
@@ -108,6 +114,10 @@ class GazparAccount:
 
                 sensor.async_schedule_update_ha_state(True)
                 _LOGGER.debug('HA notified that new data is available')
+
+        except IndexError:
+            _LOGGER.warning('No data return from Gazpar library : {}'.format(len(data)))
+
         except BaseException:
             _LOGGER.error('Failed to query Gazpar library with exception : {0}'.format(traceback.format_exc()))
 
